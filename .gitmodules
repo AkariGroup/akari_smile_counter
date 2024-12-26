@@ -1,0 +1,3 @@
+[submodule "external/depthai_handface"]
+	path = external/depthai_handface
+	url = https://github.com/AkariGroup/depthai_handface.git
