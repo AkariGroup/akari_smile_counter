@@ -11,8 +11,8 @@ source venv/bin/activate
 3.サブモジュールの初期化と更新  
 git submodule update --init  
 
-4.次にdepthai_sdk のインストールを行う。コマンドは以下の通り  
-pip install depthai-sdk  
+4.必要なパッケージをインストール  
+pip install -r requirements.txt  
 
 5.インストールの確認は以下のコマンドを使う  
 pip show depthai-sdk  
