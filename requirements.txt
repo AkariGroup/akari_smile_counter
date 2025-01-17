@@ -1,0 +1,3 @@
+akari-client[depthai]
+akari-proto
+depthai-sdk==1.15.1
