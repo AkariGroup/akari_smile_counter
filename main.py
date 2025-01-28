@@ -1,5 +1,6 @@
 from depthai_sdk import OakCamera, TextPosition, Visualizer
 from depthai_sdk.classes.packets import TwoStagePacket
+import threading
 import numpy as np
 import cv2
 import json
@@ -24,6 +25,7 @@ emotions = ['neutral', 'happy', 'sad', 'surprise', 'anger']
 
 # Happyカウント用変数
 happy_count = 0
+locking = False
 
 # 最後に認識された感情を保持する変数
 last_emotion = None
@@ -32,8 +34,6 @@ last_emotion = None
 json_path = "log/log.json"
 
 # いいね数を表示する関数（M5Stackを使用する場合）
-
-
 def display_happy_count(count):
     m5.set_display_text(
         text=f"Happy Count: {count}",
@@ -46,8 +46,6 @@ def display_happy_count(count):
     )
 
 # ログの読み込み
-
-
 def load_happy_count():
     try:
         with open(json_path, 'r') as f:
@@ -57,15 +55,11 @@ def load_happy_count():
         return 0
 
 # ログの保存
-
-
 def save_happy_count(count):
     with open(json_path, 'w') as f:
         json.dump({"happy_count": count}, f)
 
 # カウントのリセット
-
-
 def reset_happy_count():
     global happy_count
     happy_count = 0
@@ -73,6 +67,28 @@ def reset_happy_count():
     save_happy_count(happy_count)     # jsonに保存
     print("Happy count has been reset.")
 
+# 笑顔を認識した際の動作
+def happy_motion():
+    global happy_count, locking
+    locking = True
+    display_happy_count(happy_count)  # M5Stackに表示
+    save_happy_count(happy_count)     # カウントを保存
+    # m5のデータを取得
+    m5_data = m5.get()
+    # ライトを点灯
+    m5.set_dout(pin_id=0, value=True)
+    m5.set_dout(pin_id=1, value=True)
+
+    # 一回うなずく
+    joints.set_joint_velocities(pan=9, tilt=9)
+    joints.move_joint_positions(pan=0, tilt=0.25, sync=True)
+    joints.move_joint_positions(tilt=-0.25, sync=True)
+    joints.move_joint_positions(tilt=0.25, sync=True)
+
+    # ライトを消す
+    m5.set_dout(pin_id=0, value=False)
+    m5.set_dout(pin_id=1, value=False)
+    locking = False
 
 # カウントの読み込み
 happy_count = load_happy_count()
@@ -93,27 +109,11 @@ with OakCamera() as oak:
             emotion_name = emotions[np.argmax(emotion_results)]
 
             # 'happy' が認識され、前回とは異なる感情の場合にカウントを増やす
-            if emotion_name == 'happy' and last_emotion != 'happy':
+            if emotion_name == 'happy' and last_emotion != 'happy' and not locking:
                 happy_count += 1
                 print(f"Happy count: {happy_count}")
-                display_happy_count(happy_count)  # M5Stackに表示
-                save_happy_count(happy_count)     # カウントを保存
-                # m5のデータを取得
-                m5_data = m5.get()
-                # ライトを点灯
-                m5.set_dout(pin_id=0, value=True)
-                m5.set_dout(pin_id=1, value=True)
-
-                # 一回うなずく
-                joints.set_joint_velocities(pan=9, tilt=9)
-                joints.move_joint_positions(pan=0, tilt=0.25, sync=True)
-                joints.move_joint_positions(tilt=-0.25, sync=True)
-                joints.move_joint_positions(tilt=0.25, sync=True)
-
-                # ライトを消す
-                m5.set_dout(pin_id=0, value=False)
-                m5.set_dout(pin_id=1, value=False)
-
+                happy_motion_thread = threading.Thread(target=happy_motion)
+                happy_motion_thread.start()
             # 認識された感情を last_emotion に保存
             last_emotion = emotion_name
 
